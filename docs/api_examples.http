@@ -1,0 +1,71 @@
+@baseUrl = http://127.0.0.1:8000
+@token = paste-your-token-here
+
+### Obtain token
+POST {{baseUrl}}/api/token/
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "your-password"
+}
+
+### List employees
+GET {{baseUrl}}/api/employees/
+Authorization: Token {{token}}
+
+### Filter and order employees
+GET {{baseUrl}}/api/employees/?active=true&department=1&ordering=last_name
+Authorization: Token {{token}}
+
+### Search employees
+GET {{baseUrl}}/api/employees/?search=lina
+Authorization: Token {{token}}
+
+### Create a department
+POST {{baseUrl}}/api/departments/
+Authorization: Token {{token}}
+Content-Type: application/json
+
+{
+  "name": "Engineering",
+  "description": "Software and infrastructure team"
+}
+
+### Create an employee
+POST {{baseUrl}}/api/employees/
+Authorization: Token {{token}}
+Content-Type: application/json
+
+{
+  "first_name": "Maya",
+  "last_name": "Saleh",
+  "email": "maya@example.com",
+  "phone_number": "+970 599 111 222",
+  "hire_date": "2025-01-05",
+  "is_active": true,
+  "department": 1
+}
+
+### Update an employee
+PATCH {{baseUrl}}/api/employees/1/
+Authorization: Token {{token}}
+Content-Type: application/json
+
+{
+  "phone_number": "+970 598 999 999"
+}
+
+### Transfer an employee
+POST {{baseUrl}}/api/employees/1/transfer/
+Authorization: Token {{token}}
+Content-Type: application/json
+
+{
+  "department_id": 2
+}
+
+### Delete an employee
+DELETE {{baseUrl}}/api/employees/1/
+Authorization: Token {{token}}
+
