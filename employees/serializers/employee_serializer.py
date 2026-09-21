@@ -3,31 +3,7 @@ from datetime import date
 
 from rest_framework import serializers
 
-from .models import Department, Employee
-
-
-class DepartmentSerializer(serializers.ModelSerializer):
-    employee_count = serializers.IntegerField(read_only=True)
-    active_employee_count = serializers.IntegerField(read_only=True)
-
-    class Meta:
-        model = Department
-        fields = [
-            "id",
-            "name",
-            "description",
-            "employee_count",
-            "active_employee_count",
-            "created_at",
-            "updated_at",
-        ]
-        read_only_fields = ["created_at", "updated_at"]
-
-    def validate_name(self, value):
-        cleaned_name = value.strip()
-        if len(cleaned_name) < 2:
-            raise serializers.ValidationError("Department name must have at least 2 characters.")
-        return cleaned_name
+from employees.models import Department, Employee
 
 
 class EmployeeSerializer(serializers.ModelSerializer):
@@ -37,26 +13,15 @@ class EmployeeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Employee
         fields = [
-            "id",
-            "first_name",
-            "last_name",
-            "full_name",
-            "email",
-            "phone_number",
-            "hire_date",
-            "is_active",
-            "department",
-            "department_name",
-            "created_at",
-            "updated_at",
+            "id", "first_name", "last_name", "full_name", "email",
+            "phone_number", "hire_date", "is_active", "department",
+            "department_name", "created_at", "updated_at",
         ]
         read_only_fields = ["created_at", "updated_at"]
         extra_kwargs = {
-            "department": {
-                "error_messages": {
-                    "does_not_exist": "The selected department does not exist."
-                }
-            }
+            "department": {"error_messages": {
+                "does_not_exist": "The selected department does not exist."
+            }}
         }
 
     def validate_email(self, value):

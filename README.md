@@ -86,12 +86,14 @@ employee_management_api/
 │   ├── management/commands/ # Demo data command
 │   ├── migrations/          # Schema and data migrations
 │   ├── tests/               # API and business behavior tests
-│   ├── models.py
+│   ├── models/              # Django database models
+│   ├── repositories/        # Database queries only
+│   ├── components/          # Business logic and use cases
 │   ├── permissions.py
-│   ├── serializers.py
-│   ├── services.py          # Employee transfer business logic
+│   ├── serializers/         # Input validation and API output
+│   ├── services.py          # Backward-compatible service wrapper
 │   ├── urls.py
-│   └── views.py
+│   └── views/               # Thin API controllers
 ├── manage.py
 └── requirements.txt
 ```
@@ -357,14 +359,14 @@ Department totals are calculated with `Count()` and a filtered `Count()` in the 
 
 | Requirement | Implementation |
 | --- | --- |
-| Employee and department models | `employees/models.py` |
+| Employee and department models | `employees/models/` |
 | Schema and data migrations | `employees/migrations/` |
-| CRUD endpoints | `employees/views.py` and router URLs |
-| Validation | `employees/serializers.py` |
+| CRUD endpoints | `employees/views/` controllers and router URLs |
+| Validation | `employees/serializers/` |
 | Authentication and two access levels | DRF settings and `employees/permissions.py` |
-| Transactional employee transfer | `employees/services.py` |
-| Filtering, search, and ordering | `EmployeeViewSet.get_queryset()` |
-| Query optimization | `select_related()` and database annotations |
+| Transactional employee transfer | `employees/components/employee_component.py` |
+| Filtering, search, and ordering | Employee component and repository |
+| Query optimization | Repositories using `select_related()` and annotations |
 | Automated tests | `employees/tests/` |
 | Setup and API documentation | This README and `docs/api_examples.http` |
 
