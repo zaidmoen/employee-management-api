@@ -3,9 +3,9 @@
 [![Django](https://img.shields.io/badge/Django-5.2-0C4B33?logo=django)](https://www.djangoproject.com/)
 [![DRF](https://img.shields.io/badge/Django_REST_Framework-3.16-A30000)](https://www.django-rest-framework.org/)
 [![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
-[![Tests](https://img.shields.io/badge/tests-16_passing-brightgreen)](#tests-and-quality-checks)
+[![Tests](https://img.shields.io/badge/tests-29-blue)](#tests-and-quality-checks)
 
-A complete training backend built with Django, Django REST Framework, and MySQL. The API manages employees and departments while demonstrating models, relationships, migrations, validation, authentication, permissions, database transactions, automated testing, and query optimization.
+A complete training backend built with Django, Django REST Framework, and MySQL. The API manages employees, departments, and emergency contacts while demonstrating nested routers, parent-child validation, migrations, permissions, automated testing, and query optimization.
 
 ## Project report
 
@@ -18,6 +18,7 @@ The goal of this project is to turn a typical employee-management requirement in
 | Language | Python 3.11+ |
 | Web framework | Django 5.2 |
 | API framework | Django REST Framework 3.16 |
+| Nested routers | `drf-nested-routers` 0.95.3 |
 | Database | MySQL 8 with `utf8mb4` |
 | Authentication | DRF token and session authentication |
 | Testing | Django test runner and DRF API test client |
@@ -40,6 +41,7 @@ flowchart LR
 ```mermaid
 erDiagram
     DEPARTMENT ||--o{ EMPLOYEE : contains
+    EMPLOYEE ||--o{ EMERGENCY_CONTACT : has
     DEPARTMENT {
         bigint id PK
         string name UK
@@ -59,11 +61,24 @@ erDiagram
         datetime created_at
         datetime updated_at
     }
+    EMERGENCY_CONTACT {
+        bigint id PK
+        bigint employee_id FK
+        string name
+        string relationship
+        string phone_number
+        string email
+        datetime created_at
+        datetime updated_at
+    }
 ```
 
 ## Main features
 
 - Employee and department CRUD endpoints
+- Nested department employee read endpoints
+- Emergency contact create, read, update, and delete endpoints under employees
+- Nested router configuration with parent-scoped child lookups
 - MySQL database configuration using environment variables
 - Token and session authentication
 - Regular users have read-only access
@@ -223,7 +238,56 @@ Access levels:
 | POST | `/api/employees/{id}/transfer/` | Transfer an active employee |
 | GET, POST | `/api/departments/` | List or create departments |
 | GET, PATCH, PUT, DELETE | `/api/departments/{id}/` | Department details and changes |
+| GET, POST | `/api/departments/{department_id}/employees/` | List employees or create one in a department |
+| GET | `/api/departments/{department_id}/employees/{employee_id}/` | Read an employee through its department |
+| GET, POST | `/api/employees/{employee_id}/contacts/` | List or add emergency contacts |
+| GET, PATCH, DELETE | `/api/employees/{employee_id}/contacts/{contact_id}/` | Read, update, or remove a contact |
 | POST | `/api/token/` | Obtain an authentication token |
+
+Nested detail lookups include both ids. For example, an employee id that belongs to Finance cannot be retrieved from `/api/departments/1/employees/{employee_id}/` when department `1` is Engineering. The API returns `404 Not Found` for a wrong parent-child pair or for a missing parent.
+
+### Emergency contacts
+
+Create an emergency contact as a staff user:
+
+```http
+POST /api/employees/3/contacts/
+Authorization: Token YOUR_TOKEN_HERE
+Content-Type: application/json
+
+{
+  "name": "John Doe",
+  "relationship": "Father",
+  "phone_number": "+123456789",
+  "email": "john@example.com"
+}
+```
+
+The employee is taken from the URL, so it is not accepted in the request body. A contact id is also checked under that employee for detail, update, and delete requests.
+
+Employees can also be created under a department URL. The department id comes from the URL and is checked before the employee is saved:
+
+```http
+POST /api/departments/1/employees/
+Authorization: Token YOUR_TOKEN_HERE
+Content-Type: application/json
+
+{
+  "first_name": "Rana",
+  "last_name": "Khalil",
+  "email": "rana@example.com",
+  "hire_date": "2025-02-01"
+}
+```
+
+```http
+GET /api/departments/1/employees/
+GET /api/departments/1/employees/4/
+GET /api/employees/3/contacts/
+GET /api/employees/3/contacts/1/
+PATCH /api/employees/3/contacts/1/
+DELETE /api/employees/3/contacts/1/
+```
 
 ### Employee filters
 
@@ -298,11 +362,12 @@ Example validation response:
 
 ## Migrations
 
-The project intentionally contains three employee migrations:
+The project includes the original employee migrations and a nested-resource migration:
 
 1. `0001_initial.py` creates the models, relationships, indexes, and constraints.
 2. `0002_employee_phone_number.py` demonstrates adding a field after the initial schema.
 3. `0003_normalize_existing_data.py` is a data migration that cleans department names and lowercases stored emails.
+4. `0004_emergency_contact.py` creates the one-to-many employee emergency contact table.
 
 Useful commands:
 
@@ -320,16 +385,9 @@ Run all tests:
 python manage.py test --settings=employee_api.test_settings
 ```
 
-The suite checks CRUD behavior, duplicate emails, filters, department counts, permissions, transfers, rollback-safe failure cases, and the optimized employee list query count. It uses a temporary isolated database so test cleanup cannot delete local MySQL data.
+The suite checks CRUD behavior, duplicate emails, filters, department counts, nested parent-child scoping, emergency contact validation, permissions, transfers, rollback-safe failure cases, and the optimized employee list query count. It uses a temporary isolated database so test cleanup cannot delete local MySQL data.
 
-Current result:
-
-```text
-Found 16 test(s).
-................
-Ran 16 tests
-OK
-```
+The suite contains 29 tests. Run the command above to check the current result in your environment.
 
 Additional checks:
 
@@ -360,6 +418,9 @@ Department totals are calculated with `Count()` and a filtered `Count()` in the 
 | Requirement | Implementation |
 | --- | --- |
 | Employee and department models | `employees/models/` |
+| EmergencyContact model and employee relationship | `employees/models/emergency_contact_model.py` |
+| Nested router URLs | `employees/urls.py` |
+| Parent-scoped employee and contact resources | `employees/views/` and `employees/components/` |
 | Schema and data migrations | `employees/migrations/` |
 | CRUD endpoints | `employees/views/` controllers and router URLs |
 | Validation | `employees/serializers/` |

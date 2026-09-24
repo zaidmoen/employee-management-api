@@ -69,3 +69,39 @@ Content-Type: application/json
 DELETE {{baseUrl}}/api/employees/1/
 Authorization: Token {{token}}
 
+### List employees in one department
+GET {{baseUrl}}/api/departments/1/employees/
+Authorization: Token {{token}}
+
+### Read an employee through its department
+GET {{baseUrl}}/api/departments/1/employees/1/
+Authorization: Token {{token}}
+
+### Create an emergency contact
+POST {{baseUrl}}/api/employees/1/contacts/
+Authorization: Token {{token}}
+Content-Type: application/json
+
+{
+  "name": "John Doe",
+  "relationship": "Father",
+  "phone_number": "+123456789",
+  "email": "john@example.com"
+}
+
+### List an employee's contacts
+GET {{baseUrl}}/api/employees/1/contacts/
+Authorization: Token {{token}}
+
+### Update an emergency contact
+PATCH {{baseUrl}}/api/employees/1/contacts/1/
+Authorization: Token {{token}}
+Content-Type: application/json
+
+{
+  "phone_number": "+123456700"
+}
+
+### Delete an emergency contact
+DELETE {{baseUrl}}/api/employees/1/contacts/1/
+Authorization: Token {{token}}
