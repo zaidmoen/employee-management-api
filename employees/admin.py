@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Department, Employee
+from .models import Department, Employee, EmergencyContact
 
 
 @admin.register(Department)
@@ -16,3 +16,9 @@ class EmployeeAdmin(admin.ModelAdmin):
     search_fields = ["first_name", "last_name", "email"]
     list_select_related = ["department"]
 
+
+@admin.register(EmergencyContact)
+class EmergencyContactAdmin(admin.ModelAdmin):
+    list_display = ["name", "relationship", "employee", "phone_number", "email"]
+    search_fields = ["name", "employee__first_name", "employee__last_name", "email"]
+    list_select_related = ["employee"]

@@ -1,4 +1,15 @@
 from .department_serializer import DepartmentSerializer
-from .employee_serializer import EmployeeSerializer, EmployeeTransferSerializer
+from .emergency_contact_serializer import EmergencyContactSerializer
+from .employee_serializer import (
+    EmployeeSerializer,
+    EmployeeTransferSerializer,
+    NestedEmployeeSerializer,
+)
 
-__all__ = ["DepartmentSerializer", "EmployeeSerializer", "EmployeeTransferSerializer"]
+__all__ = [
+    "DepartmentSerializer",
+    "EmergencyContactSerializer",
+    "EmployeeSerializer",
+    "EmployeeTransferSerializer",
+    "NestedEmployeeSerializer",
+]

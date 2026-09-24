@@ -7,6 +7,11 @@ This file maps the assignment requirements to the implementation so the project 
 | Django, Django REST Framework, and MySQL | `employee_api/settings.py`, `requirements.txt`, `database/create_database.sql` |
 | Employee and Department models | `employees/models/` |
 | One department to many employees | `Employee.department` foreign key with `related_name="employees"` |
+| Nested Department → Employees routes | `employees/urls.py`, `DepartmentEmployeeViewSet`, and parent-scoped repository method |
+| Emergency contacts and Employee 1 → many contacts | `EmergencyContact` model and `0004_emergency_contact.py` |
+| Nested Employee → Contacts CRUD | `EmergencyContactViewSet` and nested router |
+| Parent-child 404 behavior | List-backed detail lookup scoped by parent and missing-parent checks |
+| Nested validation and permissions | Emergency contact serializer and `IsAuthenticatedAndAdminWrite` |
 | Database constraints and indexes | `Employee.Meta` and migrations |
 | Initial, schema, and data migrations | `employees/migrations/0001`, `0002`, and `0003` |
 | Employee CRUD | `EmployeeViewSet` and router URLs |
