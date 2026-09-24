@@ -61,3 +61,8 @@ class EmployeeTransferSerializer(serializers.Serializer):
             "incorrect_type": "Department id must be an integer.",
         },
     )
+
+
+class NestedEmployeeSerializer(EmployeeSerializer):
+    # The department is supplied by the parent URL on nested create requests.
+    department = serializers.PrimaryKeyRelatedField(read_only=True)
