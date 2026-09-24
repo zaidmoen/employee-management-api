@@ -1,60 +1,31 @@
-from django.urls import path
+from rest_framework.routers import DefaultRouter
+from rest_framework_nested.routers import NestedSimpleRouter
 
-from .views import DepartmentViewSet, EmployeeViewSet
-
-
-employee_list = EmployeeViewSet.as_view({
-    "get": "list",
-    "post": "create",
-})
-
-employee_detail = EmployeeViewSet.as_view({
-    "get": "retrieve",
-    "put": "update",
-    "patch": "partial_update",
-    "delete": "destroy",
-})
-
-employee_transfer = EmployeeViewSet.as_view({
-    "post": "transfer",
-})
-
-department_list = DepartmentViewSet.as_view({
-    "get": "list",
-    "post": "create",
-})
-
-department_detail = DepartmentViewSet.as_view({
-    "get": "retrieve",
-    "put": "update",
-    "patch": "partial_update",
-    "delete": "destroy",
-})
+from .views import (
+    DepartmentEmployeeViewSet,
+    DepartmentViewSet,
+    EmergencyContactViewSet,
+    EmployeeViewSet,
+)
 
 
-urlpatterns = [
-    # GET /api/employees/ -> list employees
-    # POST /api/employees/ -> create employee
-    path("employees/", employee_list, name="employee-list"),
+router = DefaultRouter()
+router.register("employees", EmployeeViewSet, basename="employee")
+router.register("departments", DepartmentViewSet, basename="department")
 
-    # GET /api/employees/<id>/ -> get one employee
-    # PUT/PATCH /api/employees/<id>/ -> update employee
-    # DELETE /api/employees/<id>/ -> delete employee
-    path("employees/<int:pk>/", employee_detail, name="employee-detail"),
+# Nested routers add the parent id to the route kwargs for each child viewset.
+department_router = NestedSimpleRouter(router, "departments", lookup="department")
+department_router.register(
+    "employees",
+    DepartmentEmployeeViewSet,
+    basename="department-employees",
+)
 
-    # POST /api/employees/<id>/transfer/ -> move employee to another department
-    path(
-        "employees/<int:pk>/transfer/",
-        employee_transfer,
-        name="employee-transfer",
-    ),
+employee_router = NestedSimpleRouter(router, "employees", lookup="employee")
+employee_router.register(
+    "contacts",
+    EmergencyContactViewSet,
+    basename="employee-contacts",
+)
 
-    # GET /api/departments/ -> list departments
-    # POST /api/departments/ -> create department
-    path("departments/", department_list, name="department-list"),
-
-    # GET /api/departments/<id>/ -> get one department
-    # PUT/PATCH /api/departments/<id>/ -> update department
-    # DELETE /api/departments/<id>/ -> delete department
-    path("departments/<int:pk>/", department_detail, name="department-detail"),
-]
+urlpatterns = router.urls + department_router.urls + employee_router.urls
