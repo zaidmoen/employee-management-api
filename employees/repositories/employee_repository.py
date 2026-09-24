@@ -7,13 +7,6 @@ class EmployeeRepository:
     def get_all(self):
         return Employee.objects.select_related("department")
 
-    def get_for_department(self, department_id):
-        # Scope employees in the database, then pass a plain list to the view layer.
-        return list(
-            Employee.objects.select_related("department")
-            .filter(department_id=department_id)
-        )
-
     def filter(self, active=None, department_id=None, search=None, ordering=None):
         queryset = self.get_all()
 

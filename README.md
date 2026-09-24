@@ -5,7 +5,7 @@
 [![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
 [![Tests](https://img.shields.io/badge/tests-29-blue)](#tests-and-quality-checks)
 
-A complete training backend built with Django, Django REST Framework, and MySQL. The API manages employees, departments, and emergency contacts while demonstrating nested routers, parent-child validation, migrations, permissions, automated testing, and query optimization.
+A complete training backend built with Django, Django REST Framework, and MySQL. The API manages employees, departments, and emergency contacts while demonstrating nested routes, parent-child validation, migrations, permissions, automated testing, and query optimization.
 
 ## Project report
 
@@ -18,7 +18,6 @@ The goal of this project is to turn a typical employee-management requirement in
 | Language | Python 3.11+ |
 | Web framework | Django 5.2 |
 | API framework | Django REST Framework 3.16 |
-| Nested routers | `drf-nested-routers` 0.95.3 |
 | Database | MySQL 8 with `utf8mb4` |
 | Authentication | DRF token and session authentication |
 | Testing | Django test runner and DRF API test client |
@@ -78,7 +77,7 @@ erDiagram
 - Employee and department CRUD endpoints
 - Nested department employee read endpoints
 - Emergency contact create, read, update, and delete endpoints under employees
-- Nested router configuration with parent-scoped child lookups
+- Manual nested URL routes with parent-scoped child lookups
 - MySQL database configuration using environment variables
 - Token and session authentication
 - Regular users have read-only access
@@ -243,6 +242,8 @@ Access levels:
 | GET, POST | `/api/employees/{employee_id}/contacts/` | List or add emergency contacts |
 | GET, PATCH, DELETE | `/api/employees/{employee_id}/contacts/{contact_id}/` | Read, update, or remove a contact |
 | POST | `/api/token/` | Obtain an authentication token |
+
+Nested paths are declared directly in `employees/urls.py`; the project does not install an additional nested-router package. Their repositories use parameterized SQL and return Python lists for the nested views. The existing Phase 1 endpoints keep their original data-access code.
 
 Nested detail lookups include both ids. For example, an employee id that belongs to Finance cannot be retrieved from `/api/departments/1/employees/{employee_id}/` when department `1` is Engineering. The API returns `404 Not Found` for a wrong parent-child pair or for a missing parent.
 
@@ -419,7 +420,7 @@ Department totals are calculated with `Count()` and a filtered `Count()` in the 
 | --- | --- |
 | Employee and department models | `employees/models/` |
 | EmergencyContact model and employee relationship | `employees/models/emergency_contact_model.py` |
-| Nested router URLs | `employees/urls.py` |
+| Nested URL declarations | Explicit paths in `employees/urls.py` |
 | Parent-scoped employee and contact resources | `employees/views/` and `employees/components/` |
 | Schema and data migrations | `employees/migrations/` |
 | CRUD endpoints | `employees/views/` controllers and router URLs |

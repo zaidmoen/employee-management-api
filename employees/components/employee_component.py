@@ -1,9 +1,8 @@
 from django.db import transaction
 from rest_framework.exceptions import NotFound, ValidationError
 
-from employees.models import Department, Employee
+from employees.models import Employee
 from employees.repositories import EmployeeRepository
-from employees.repositories import DepartmentRepository
 
 
 class EmployeeComponent:
@@ -11,16 +10,6 @@ class EmployeeComponent:
 
     def __init__(self, repository=None):
         self.repository = repository or EmployeeRepository()
-        self.department_repository = DepartmentRepository()
-
-    def get_employees_for_department(self, department_id):
-        try:
-            department = self.department_repository.get_by_id(department_id)
-        except Department.DoesNotExist as exc:
-            raise NotFound({"department": "Department does not exist."}) from exc
-
-        # Returning a list keeps the controller simple while the repository applies the parent filter.
-        return self.repository.get_for_department(department.id)
 
     def get_employees_list(self, params):
         active = None

@@ -1,5 +1,5 @@
+from django.urls import path
 from rest_framework.routers import DefaultRouter
-from rest_framework_nested.routers import NestedSimpleRouter
 
 from .views import (
     DepartmentEmployeeViewSet,
@@ -13,19 +13,43 @@ router = DefaultRouter()
 router.register("employees", EmployeeViewSet, basename="employee")
 router.register("departments", DepartmentViewSet, basename="department")
 
-# Nested routers add the parent id to the route kwargs for each child viewset.
-department_router = NestedSimpleRouter(router, "departments", lookup="department")
-department_router.register(
-    "employees",
-    DepartmentEmployeeViewSet,
-    basename="department-employees",
-)
+department_employee_list = DepartmentEmployeeViewSet.as_view({
+    "get": "list",
+    "post": "create",
+})
+department_employee_detail = DepartmentEmployeeViewSet.as_view({
+    "get": "retrieve",
+})
+employee_contact_list = EmergencyContactViewSet.as_view({
+    "get": "list",
+    "post": "create",
+})
+employee_contact_detail = EmergencyContactViewSet.as_view({
+    "get": "retrieve",
+    "patch": "partial_update",
+    "delete": "destroy",
+})
 
-employee_router = NestedSimpleRouter(router, "employees", lookup="employee")
-employee_router.register(
-    "contacts",
-    EmergencyContactViewSet,
-    basename="employee-contacts",
-)
-
-urlpatterns = router.urls + department_router.urls + employee_router.urls
+# These explicit paths keep the parent id visible without an extra router package.
+urlpatterns = router.urls + [
+    path(
+        "departments/<int:department_pk>/employees/",
+        department_employee_list,
+        name="department-employees-list",
+    ),
+    path(
+        "departments/<int:department_pk>/employees/<int:pk>/",
+        department_employee_detail,
+        name="department-employees-detail",
+    ),
+    path(
+        "employees/<int:employee_pk>/contacts/",
+        employee_contact_list,
+        name="employee-contacts-list",
+    ),
+    path(
+        "employees/<int:employee_pk>/contacts/<int:pk>/",
+        employee_contact_detail,
+        name="employee-contacts-detail",
+    ),
+]

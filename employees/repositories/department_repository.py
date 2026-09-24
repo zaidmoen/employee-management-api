@@ -13,6 +13,3 @@ class DepartmentRepository:
                 distinct=True,
             ),
         )
-
-    def get_by_id(self, department_id):
-        return Department.objects.get(pk=department_id)

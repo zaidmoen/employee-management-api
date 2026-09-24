@@ -2,22 +2,15 @@ import re
 
 from rest_framework import serializers
 
-from employees.models import EmergencyContact
 
-
-class EmergencyContactSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = EmergencyContact
-        fields = [
-            "id",
-            "name",
-            "relationship",
-            "phone_number",
-            "email",
-            "created_at",
-            "updated_at",
-        ]
-        read_only_fields = ["created_at", "updated_at"]
+class EmergencyContactSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    name = serializers.CharField(max_length=100)
+    relationship = serializers.CharField(max_length=50)
+    phone_number = serializers.CharField(max_length=25)
+    email = serializers.EmailField()
+    created_at = serializers.DateTimeField(read_only=True)
+    updated_at = serializers.DateTimeField(read_only=True)
 
     def validate_name(self, value):
         value = value.strip()

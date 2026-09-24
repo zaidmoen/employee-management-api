@@ -2,6 +2,7 @@ from django.urls import reverse
 from rest_framework import status
 
 from employees.models import EmergencyContact, Employee
+from employees.repositories import EmergencyContactRepository, NestedEmployeeRepository
 
 from .base import ApiTestCase
 
@@ -56,9 +57,7 @@ class DepartmentEmployeeApiTests(ApiTestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["department"], self.engineering.id)
-        self.assertTrue(
-            Employee.objects.filter(email="rana@example.com", department=self.engineering).exists()
-        )
+        self.assertTrue(NestedEmployeeRepository().email_exists("rana@example.com"))
 
     def test_employee_from_another_department_returns_404(self):
         self.authenticate_regular()
@@ -145,7 +144,10 @@ class EmergencyContactApiTests(ApiTestCase):
         self.assertEqual(update_response.status_code, status.HTTP_200_OK)
         self.assertEqual(update_response.data["relationship"], "Parent")
         self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertFalse(EmergencyContact.objects.filter(pk=contact.id).exists())
+        self.assertEqual(
+            EmergencyContactRepository().get_for_employee(self.employee.id),
+            [],
+        )
 
     def test_contact_owned_by_another_employee_returns_404(self):
         self.authenticate_regular()

@@ -62,7 +62,3 @@ class EmployeeTransferSerializer(serializers.Serializer):
         },
     )
 
-
-class NestedEmployeeSerializer(EmployeeSerializer):
-    # The department is supplied by the parent URL on nested create requests.
-    department = serializers.PrimaryKeyRelatedField(read_only=True)
