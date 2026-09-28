@@ -1,11 +1,6 @@
-from .department_controller import DepartmentViewSet
-from .department_employee_controller import DepartmentEmployeeViewSet
-from .emergency_contact_controller import EmergencyContactViewSet
-from .employee_controller import EmployeeViewSet
+from .sqlalchemy_controller import (
+    DepartmentViewSet, DepartmentEmployeeViewSet, EmployeeViewSet,
+    EmergencyContactViewSet,
+)
 
-__all__ = [
-    "DepartmentViewSet",
-    "DepartmentEmployeeViewSet",
-    "EmergencyContactViewSet",
-    "EmployeeViewSet",
-]
+__all__ = ["DepartmentViewSet", "DepartmentEmployeeViewSet", "EmployeeViewSet", "EmergencyContactViewSet"]

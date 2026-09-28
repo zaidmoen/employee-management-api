@@ -1,472 +1,103 @@
-# Employee Management REST API
+# Employee Management API
 
-[![Django](https://img.shields.io/badge/Django-5.2-0C4B33?logo=django)](https://www.djangoproject.com/)
-[![DRF](https://img.shields.io/badge/Django_REST_Framework-3.16-A30000)](https://www.django-rest-framework.org/)
-[![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
-[![Tests](https://img.shields.io/badge/tests-29-blue)](#tests-and-quality-checks)
+A training REST API built with Django REST Framework, SQLAlchemy 2.0, marshmallow-sqlalchemy, MySQL, and `drf-nested-routers`.
 
-A complete training backend built with Django, Django REST Framework, and MySQL. The API manages employees, departments, and emergency contacts while demonstrating nested routers, parent-child validation, migrations, permissions, automated testing, and query optimization.
-
-## Project report
-
-The goal of this project is to turn a typical employee-management requirement into a maintainable REST API. The implementation keeps HTTP handling inside viewsets, validation inside serializers, and transfer rules inside a small service layer. This separation makes the code easier to read, test, and explain during review.
-
-### Technology stack
-
-| Area | Technology |
-| --- | --- |
-| Language | Python 3.11+ |
-| Web framework | Django 5.2 |
-| API framework | Django REST Framework 3.16 |
-| Nested routers | `drf-nested-routers` 0.95.3 |
-| Database | MySQL 8 with `utf8mb4` |
-| Authentication | DRF token and session authentication |
-| Testing | Django test runner and DRF API test client |
-
-### Request flow
-
-```mermaid
-flowchart LR
-    A[API request] --> B[Authentication and permission]
-    B --> C[ViewSet]
-    C --> D[Serializer validation]
-    C --> E[Service layer]
-    D --> F[(MySQL)]
-    E --> F
-    F --> G[JSON response]
-```
-
-### Data model
-
-```mermaid
-erDiagram
-    DEPARTMENT ||--o{ EMPLOYEE : contains
-    EMPLOYEE ||--o{ EMERGENCY_CONTACT : has
-    DEPARTMENT {
-        bigint id PK
-        string name UK
-        text description
-        datetime created_at
-        datetime updated_at
-    }
-    EMPLOYEE {
-        bigint id PK
-        string first_name
-        string last_name
-        string email UK
-        string phone_number
-        date hire_date
-        boolean is_active
-        bigint department_id FK
-        datetime created_at
-        datetime updated_at
-    }
-    EMERGENCY_CONTACT {
-        bigint id PK
-        bigint employee_id FK
-        string name
-        string relationship
-        string phone_number
-        string email
-        datetime created_at
-        datetime updated_at
-    }
-```
-
-## Main features
-
-- Employee and department CRUD endpoints
-- Nested department employee read endpoints
-- Emergency contact create, read, update, and delete endpoints under employees
-- Nested router configuration with parent-scoped child lookups
-- MySQL database configuration using environment variables
-- Token and session authentication
-- Regular users have read-only access
-- Staff/admin users can create, update, delete, and transfer employees
-- Employee filtering by active status and department
-- Name/email search and safe ordering
-- Department employee counts using database aggregation
-- Employee transfer service using `transaction.atomic()` and `select_for_update()`
-- Schema migrations plus a data migration
-- Automated tests for success and failure cases
-- Admin panel and optional demo data command
-
-## Project structure
-
-```text
-employee_management_api/
-├── database/                # MySQL database creation script
-├── employee_api/            # Project settings and root URLs
-├── employees/
-│   ├── management/commands/ # Demo data command
-│   ├── migrations/          # Schema and data migrations
-│   ├── tests/               # API and business behavior tests
-│   ├── models/              # Django database models
-│   ├── repositories/        # Database queries only
-│   ├── components/          # Business logic and use cases
-│   ├── permissions.py
-│   ├── serializers/         # Input validation and API output
-│   ├── services.py          # Backward-compatible service wrapper
-│   ├── urls.py
-│   └── views/               # Thin API controllers
-├── manage.py
-└── requirements.txt
-```
+Django handles token authentication, permissions, URLs, and historical schema migrations. Employee, department, and contact reads/writes use SQLAlchemy sessions. Marshmallow validates input and serializes the SQLAlchemy objects. The flow is **controller → component → repository → SQLAlchemy**, with a commit on success and rollback on errors.
 
 ## Setup
 
-Python 3.11 or newer is recommended.
+Use Python 3.11+ and MySQL 8. Create `employee_management_db` with `database/create_database.sql` (MySQL Workbench also works). Then:
 
-```bash
+```powershell
 python -m venv .venv
-```
-
-Activate the environment:
-
-```bash
-# Windows PowerShell
 .venv\Scripts\Activate.ps1
-
-# Linux or macOS
-source .venv/bin/activate
-```
-
-Install packages:
-
-```bash
 pip install -r requirements.txt
 ```
 
-Create a local `.env` file in the project root and add the environment variables listed in the configuration table below. Set `MYSQL_PASSWORD` to the password of your local MySQL user. The real `.env` file is ignored by Git and must not be committed.
+Create `.env` in the project root:
 
-## MySQL database setup
-
-The project uses these local values by default:
-
-| Setting | Value |
-| --- | --- |
-| Database | `employee_management_db` |
-| User | `root` |
-| Password | Value from `.env` |
-| Host | `127.0.0.1` |
-| Port | `3306` |
-
-Make sure MySQL Server is running. Create the database from the project directory.
-
-Linux or macOS:
-
-```bash
-mysql -u root -p < database/create_database.sql
+```dotenv
+MYSQL_DATABASE=employee_management_db
+MYSQL_USER=root
+MYSQL_PASSWORD=your_password
+MYSQL_HOST=127.0.0.1
+MYSQL_PORT=3306
+DJANGO_SECRET_KEY=replace_for_real_deployments
+DJANGO_DEBUG=True
 ```
 
-Windows PowerShell:
+Run the **new migration before starting the API**. Migration 0005 adds optional shift fields; 0006 removes Django's live model state while retaining all existing employee tables and rows for SQLAlchemy.
 
 ```powershell
-cmd /c "mysql -u root -p < database\create_database.sql"
-```
-
-If the `mysql` command is not available, open `database/create_database.sql` in MySQL Workbench and execute it. Then create the tables, demo data, and an admin account:
-
-```bash
 python manage.py migrate
-python manage.py seed_data
 python manage.py createsuperuser
+python manage.py seed_data
 python manage.py runserver
 ```
 
-The `seed_data` command adds two departments and two employees. MySQL stores the database in the MySQL server, so the project does not include a `db.sqlite3` file.
+Django admin manages users and tokens; employee data is managed through the API. Existing user tokens continue to work. Obtain a token with `POST http://127.0.0.1:8000/api/token/` and send `Authorization: Token YOUR_TOKEN` in API requests. Authenticated users can read; staff can write. Every URL ends in `/`.
 
-The API is available at `http://127.0.0.1:8000/api/` and the admin panel at `http://127.0.0.1:8000/admin/`.
+## URLs
 
-## Environment configuration
-
-The following environment variables are supported:
-
-| Variable | Example | Purpose |
+| Method | URL | Use |
 | --- | --- | --- |
-| `DJANGO_SECRET_KEY` | `a-long-random-value` | Django signing secret |
-| `DJANGO_DEBUG` | `True` | Enables development debug mode |
-| `DJANGO_ALLOWED_HOSTS` | `127.0.0.1,localhost` | Comma-separated hosts |
-| `MYSQL_DATABASE` | `employee_management_db` | MySQL database name |
-| `MYSQL_USER` | `root` | MySQL username |
-| `MYSQL_PASSWORD` | `your_mysql_password` | MySQL password |
-| `MYSQL_HOST` | `127.0.0.1` | MySQL server host |
-| `MYSQL_PORT` | `3306` | MySQL server port |
+| GET, POST | `/api/departments/` | List with employee totals, create |
+| GET, PUT, PATCH, DELETE | `/api/departments/{id}/` | Department detail and changes |
+| GET, POST | `/api/employees/` | Filter/list and create |
+| GET, PUT, PATCH, DELETE | `/api/employees/{id}/` | Employee detail and changes |
+| POST | `/api/employees/{id}/transfer/` | Change department of an active employee |
+| GET, POST | `/api/departments/{dep_id}/employees/` | Employees in department, create under parent |
+| GET | `/api/departments/{dep_id}/employees/{emp_id}/` | Parent-scoped employee |
+| GET, POST | `/api/employees/{emp_id}/contacts/` | Contact list and create |
+| GET, PUT, PATCH, DELETE | `/api/employees/{emp_id}/contacts/{contact_id}/` | Parent-scoped contact |
 
-Keep `.env` local. It is intentionally excluded from the repository so database credentials are never published.
+Employee list supports `?active=true`, `?department=1`, `?search=lina`, and `?ordering=-hire_date`. Ordering accepts first_name, last_name, hire_date, and created_at. Lists are paginated. `joinedload` loads the department for an employee list/detail so serialization does not make a department query per employee.
 
-## Authentication and permissions
+### Shift example
 
-Create a token for an existing user:
-
-```bash
-python manage.py drf_create_token USERNAME
-```
-
-Or send a username and password to the token endpoint:
+Set `shift_start`, `shift_end`, and `break_minutes` on employee create or PATCH:
 
 ```http
-POST /api/token/
+PATCH /api/employees/1/
+Authorization: Token YOUR_TOKEN
 Content-Type: application/json
 
-{
-  "username": "admin",
-  "password": "your-password"
-}
+{"shift_start":"22:00","shift_end":"06:00","break_minutes":30}
 ```
 
-Send the token with each API request:
+The response includes `shift_hours: 7.5`. Times are local wall-clock times; an end before a start means the shift crosses midnight, and equal start/end means 24 hours. A break must be shorter than the shift. These are **scheduled hours per shift**, not payroll calculations; there are no timezone, date, holiday, or overtime rules yet. Employees without a shift return `shift_hours: null`.
 
-```http
-Authorization: Token YOUR_TOKEN_HERE
-```
-
-Access levels:
-
-| User | Read | Create, update, delete, transfer |
-| --- | --- | --- |
-| Unauthenticated | No | No |
-| Regular authenticated user | Yes | No |
-| Staff or superuser | Yes | Yes |
-
-## API endpoints
-
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| GET, POST | `/api/employees/` | List or create employees |
-| GET, PATCH, PUT, DELETE | `/api/employees/{id}/` | Employee details and changes |
-| POST | `/api/employees/{id}/transfer/` | Transfer an active employee |
-| GET, POST | `/api/departments/` | List or create departments |
-| GET, PATCH, PUT, DELETE | `/api/departments/{id}/` | Department details and changes |
-| GET, POST | `/api/departments/{department_id}/employees/` | List employees or create one in a department |
-| GET | `/api/departments/{department_id}/employees/{employee_id}/` | Read an employee through its department |
-| GET, POST | `/api/employees/{employee_id}/contacts/` | List or add emergency contacts |
-| GET, PATCH, DELETE | `/api/employees/{employee_id}/contacts/{contact_id}/` | Read, update, or remove a contact |
-| POST | `/api/token/` | Obtain an authentication token |
-
-Nested detail lookups include both ids. For example, an employee id that belongs to Finance cannot be retrieved from `/api/departments/1/employees/{employee_id}/` when department `1` is Engineering. The API returns `404 Not Found` for a wrong parent-child pair or for a missing parent.
-
-### Emergency contacts
-
-Create an emergency contact as a staff user:
-
-```http
-POST /api/employees/3/contacts/
-Authorization: Token YOUR_TOKEN_HERE
-Content-Type: application/json
-
-{
-  "name": "John Doe",
-  "relationship": "Father",
-  "phone_number": "+123456789",
-  "email": "john@example.com"
-}
-```
-
-The employee is taken from the URL, so it is not accepted in the request body. A contact id is also checked under that employee for detail, update, and delete requests.
-
-Employees can also be created under a department URL. The department id comes from the URL and is checked before the employee is saved:
+### Nested employee example
 
 ```http
 POST /api/departments/1/employees/
-Authorization: Token YOUR_TOKEN_HERE
+Authorization: Token YOUR_TOKEN
 Content-Type: application/json
 
-{
-  "first_name": "Rana",
-  "last_name": "Khalil",
-  "email": "rana@example.com",
-  "hire_date": "2025-02-01"
-}
+{"first_name":"Rana","last_name":"Khalil","email":"rana@example.com","hire_date":"2025-02-01"}
 ```
 
-```http
-GET /api/departments/1/employees/
-GET /api/departments/1/employees/4/
-GET /api/employees/3/contacts/
-GET /api/employees/3/contacts/1/
-PATCH /api/employees/3/contacts/1/
-DELETE /api/employees/3/contacts/1/
-```
+The department comes from the URL; a child belonging to another parent returns 404. Transfer uses `{"department_id": 2}`. Invalid input returns field errors and the SQLAlchemy session rolls back.
 
-### Employee filters
+## Code map
 
-```http
-GET /api/employees/?active=true
-GET /api/employees/?department=2
-GET /api/employees/?search=lina
-GET /api/employees/?ordering=last_name
-GET /api/employees/?ordering=-hire_date
-```
+- `employees/sqlalchemy_models.py`: typed mappings and relationships.
+- `employees/database.py`: engine and one session per operation.
+- `employees/serializers/schemas.py`: marshmallow input and SQLAlchemy output schemas.
+- `employees/repositories/sqlalchemy_repository.py`: database statements returning Python lists.
+- `employees/components/sqlalchemy_component.py`: shift, transfer, and uniqueness rules.
+- `employees/views/sqlalchemy_controller.py`: small DRF ViewSet actions and responses.
+- `employees/urls.py`: root and nested routers.
+- `employees/migrations/`: historical Django schema and data migrations, plus handover to SQLAlchemy.
 
-Allowed ordering fields are `first_name`, `last_name`, `hire_date`, and `created_at`.
+To debug an API, put a breakpoint in `EmployeeViewSet.create()` in `employees/views/sqlalchemy_controller.py`, then step into `EmployeeComponent.save_employee()`, `Repository.add()`, and `session_scope()`. Example: `python -m pdb manage.py runserver --noreload`, send `POST /api/employees/` from Postman, inspect `data`, `department`, and `session.new`, then continue. The debugger stops at startup first; use `b employees/views/sqlalchemy_controller.py:110` adjusted to the current line, then `c`. In an IDE, set the breakpoint directly in the controller instead.
 
-## Example requests
+## Checks
 
-Create an employee as an admin:
-
-```http
-POST /api/employees/
-Authorization: Token YOUR_TOKEN_HERE
-Content-Type: application/json
-
-{
-  "first_name": "Maya",
-  "last_name": "Saleh",
-  "email": "maya@example.com",
-  "phone_number": "+970 599 111 222",
-  "hire_date": "2025-01-05",
-  "is_active": true,
-  "department": 1
-}
-```
-
-Successful response:
-
-```json
-{
-  "id": 3,
-  "first_name": "Maya",
-  "last_name": "Saleh",
-  "full_name": "Maya Saleh",
-  "email": "maya@example.com",
-  "phone_number": "+970 599 111 222",
-  "hire_date": "2025-01-05",
-  "is_active": true,
-  "department": 1,
-  "department_name": "Engineering",
-  "created_at": "2026-09-19T12:00:00Z",
-  "updated_at": "2026-09-19T12:00:00Z"
-}
-```
-
-Transfer an employee:
-
-```http
-POST /api/employees/3/transfer/
-Authorization: Token YOUR_TOKEN_HERE
-Content-Type: application/json
-
-{
-  "department_id": 2
-}
-```
-
-Example validation response:
-
-```json
-{
-  "employee": ["Inactive employees cannot be transferred."]
-}
-```
-
-## Migrations
-
-The project includes the original employee migrations and a nested-resource migration:
-
-1. `0001_initial.py` creates the models, relationships, indexes, and constraints.
-2. `0002_employee_phone_number.py` demonstrates adding a field after the initial schema.
-3. `0003_normalize_existing_data.py` is a data migration that cleans department names and lowercases stored emails.
-4. `0004_emergency_contact.py` creates the one-to-many employee emergency contact table.
-
-Useful commands:
-
-```bash
-python manage.py showmigrations
-python manage.py makemigrations
-python manage.py migrate
-```
-
-## Tests and quality checks
-
-Run all tests:
-
-```bash
+```powershell
+python manage.py check
+python manage.py makemigrations --check --dry-run
 python manage.py test --settings=employee_api.test_settings
 ```
 
-The suite checks CRUD behavior, duplicate emails, filters, department counts, nested parent-child scoping, emergency contact validation, permissions, transfers, rollback-safe failure cases, and the optimized employee list query count. It uses a temporary isolated database so test cleanup cannot delete local MySQL data.
-
-The suite contains 29 tests. Run the command above to check the current result in your environment.
-
-Additional checks:
-
-```bash
-python manage.py check --settings=employee_api.test_settings
-python manage.py makemigrations --check --dry-run --settings=employee_api.test_settings
-```
-
-## Query optimization note
-
-The employee serializer returns the department name. Without optimization, listing employees can cause one extra department query for every employee, which is the N+1 problem. `EmployeeViewSet.get_queryset()` uses `select_related("department")` so the employee and department data are loaded in one joined query.
-
-Pagination runs a count query plus one employee query. Token authentication adds one user/token query, so the test confirms the endpoint stays at three queries even when employee rows are serialized.
-
-Department totals are calculated with `Count()` and a filtered `Count()` in the database. This avoids loading all employees into Python just to calculate the two totals. The employee model also has indexes for hire date, active status, and the common department/active combination.
-
-## Important design decisions
-
-- `PROTECT` prevents deleting a department that still owns employee records.
-- Email addresses are normalized to lowercase and checked case-insensitively.
-- Future hire dates and invalid phone formats are rejected by serializer validation.
-- Employee transfer runs inside `transaction.atomic()` and locks the employee row with `select_for_update()`.
-- Filtering and ordering use explicit allowlists so unsupported query values return clear errors.
-- List endpoints use pagination to keep responses manageable as data grows.
-
-## Requirement coverage
-
-| Requirement | Implementation |
-| --- | --- |
-| Employee and department models | `employees/models/` |
-| EmergencyContact model and employee relationship | `employees/models/emergency_contact_model.py` |
-| Nested router URLs | `employees/urls.py` |
-| Parent-scoped employee and contact resources | `employees/views/` and `employees/components/` |
-| Schema and data migrations | `employees/migrations/` |
-| CRUD endpoints | `employees/views/` controllers and router URLs |
-| Validation | `employees/serializers/` |
-| Authentication and two access levels | DRF settings and `employees/permissions.py` |
-| Transactional employee transfer | `employees/components/employee_component.py` |
-| Filtering, search, and ordering | Employee component and repository |
-| Query optimization | Repositories using `select_related()` and annotations |
-| Automated tests | `employees/tests/` |
-| Setup and API documentation | This README and `docs/api_examples.http` |
-
-## Troubleshooting
-
-### `manage.py` cannot be found
-
-The ZIP contains an outer folder. Move into the application directory first:
-
-```powershell
-cd .\employee_management_api
-```
-
-### `mysql` is not recognized
-
-Run the SQL file from MySQL Workbench, or add the MySQL `bin` directory to the Windows `PATH`.
-
-### Access denied for MySQL user
-
-Update `MYSQL_USER` and `MYSQL_PASSWORD` in `.env` so they match the account used by MySQL Workbench.
-
-### PowerShell does not display password characters
-
-This is normal. PowerShell records the password while keeping the prompt blank.
-
-## Suggested Git workflow
-
-For a real training submission, commit the work gradually instead of uploading one final commit:
-
-```text
-feature/project-setup
-feature/employee-model
-feature/department-model
-feature/employee-api
-feature/department-api
-feature/authentication
-feature/employee-transfer
-test/api-tests
-perf/query-optimization
-```
-
-Each branch should contain a focused change and its tests, then be opened as a pull request before merging.
+The tests use SQLite and check auth, nested routes, validation, scheduled shift hours, rollback, contacts, and transfer. MySQL schema compatibility still requires running `migrate` on a local MySQL database. Never commit `.env`.

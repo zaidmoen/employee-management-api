@@ -1,5 +1,2 @@
-from .department_model import Department
-from .emergency_contact_model import EmergencyContact
-from .employee_model import Employee
-
-__all__ = ["Department", "Employee", "EmergencyContact"]
+# Historical Django migrations keep their own model state. Live employee data
+# is mapped by employees.sqlalchemy_models instead.

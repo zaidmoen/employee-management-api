@@ -1,42 +1,32 @@
 from datetime import date
 
 from django.core.management.base import BaseCommand
+from sqlalchemy import func, select
 
-from employees.models import Department, Employee
+from employees.database import session_scope
+from employees.sqlalchemy_models import Department, Employee
 
 
 class Command(BaseCommand):
-    help = "Create a few departments and employees for local testing"
+    help = "Create sample SQLAlchemy records for local API testing"
 
     def handle(self, *args, **options):
-        engineering, _ = Department.objects.get_or_create(
-            name="Engineering",
-            defaults={"description": "Software and infrastructure team"},
-        )
-        hr, _ = Department.objects.get_or_create(
-            name="Human Resources",
-            defaults={"description": "People operations team"},
-        )
+        with session_scope() as session:
+            departments = {}
+            for name, description in (("Engineering", "Software and infrastructure team"),
+                                      ("Human Resources", "People operations team")):
+                department = session.scalar(select(Department).where(Department.name == name))
+                if department is None:
+                    department = Department(name=name, description=description)
+                    session.add(department)
+                    session.flush()
+                departments[name] = department
 
-        Employee.objects.get_or_create(
-            email="lina@example.com",
-            defaults={
-                "first_name": "Lina",
-                "last_name": "Haddad",
-                "phone_number": "+970 599 000 001",
-                "hire_date": date(2024, 2, 10),
-                "department": engineering,
-            },
-        )
-        Employee.objects.get_or_create(
-            email="samer@example.com",
-            defaults={
-                "first_name": "Samer",
-                "last_name": "Nassar",
-                "phone_number": "+970 599 000 002",
-                "hire_date": date(2023, 7, 1),
-                "department": hr,
-            },
-        )
+            for first, last, email, hired, department_name in (
+                ("Lina", "Haddad", "lina@example.com", date(2024, 2, 10), "Engineering"),
+                ("Samer", "Nassar", "samer@example.com", date(2023, 7, 1), "Human Resources"),
+            ):
+                if session.scalar(select(Employee.id).where(func.lower(Employee.email) == email)) is None:
+                    session.add(Employee(first_name=first, last_name=last, email=email,
+                                         hire_date=hired, department=departments[department_name]))
         self.stdout.write(self.style.SUCCESS("Demo data is ready."))
-
