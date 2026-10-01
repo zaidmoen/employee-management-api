@@ -1,4 +1,5 @@
 from django.db import models
+from decimal import Decimal
 
 from .department_model import Department
 
@@ -8,6 +9,11 @@ class Employee(models.Model):
     last_name = models.CharField(max_length=80)
     email = models.EmailField(unique=True)
     phone_number = models.CharField(max_length=25, blank=True)
+    hourly_rate = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+    )
     hire_date = models.DateField(db_index=True)
     is_active = models.BooleanField(default=True, db_index=True)
     department = models.ForeignKey(
@@ -31,6 +37,10 @@ class Employee(models.Model):
             models.CheckConstraint(
                 condition=~models.Q(last_name=""),
                 name="employee_last_name_not_empty",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(hourly_rate__gte=0),
+                name="employee_hourly_rate_non_negative",
             ),
         ]
 

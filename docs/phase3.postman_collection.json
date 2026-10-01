@@ -1,0 +1,101 @@
+{
+  "info": {
+    "name": "Employee Management API - Phase 3",
+    "description": "Scheduled shifts and forecasted pay. Run against a migrated database. Use an authorized staff token for write requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://127.0.0.1:8000/api" },
+    { "key": "token", "value": "REPLACE_WITH_TOKEN" },
+    { "key": "employee_id", "value": "1" },
+    { "key": "shift_id", "value": "" }
+  ],
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      { "key": "key", "value": "Authorization", "type": "string" },
+      { "key": "value", "value": "Token {{token}}", "type": "string" },
+      { "key": "in", "value": "header", "type": "string" }
+    ]
+  },
+  "item": [
+    {
+      "name": "Employee rate",
+      "item": [
+        {
+          "name": "Get employee and current hourly rate",
+          "request": { "method": "GET", "header": [], "url": "{{base_url}}/employees/{{employee_id}}/" }
+        },
+        {
+          "name": "Update hourly rate",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"hourly_rate\": \"15.00\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{base_url}}/employees/{{employee_id}}/"
+          }
+        },
+        {
+          "name": "Reject negative rate (expect 400)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"hourly_rate\": \"-1.00\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{base_url}}/employees/{{employee_id}}/"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Scheduled shifts",
+      "item": [
+        {
+          "name": "Create 8-hour shift",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Created', () => pm.response.to.have.status(201));",
+                "const shift = pm.response.json();",
+                "pm.environment.set('shift_id', shift.id);",
+                "pm.test('Calculated hours and pay', () => { pm.expect(shift.scheduled_hours).to.eql('8.00'); pm.expect(shift.forecasted_pay).to.eql('120.00'); });"
+              ]
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"start_datetime\": \"2026-10-01T09:00:00Z\",\n  \"end_datetime\": \"2026-10-01T17:00:00Z\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{base_url}}/employees/{{employee_id}}/shifts/"
+          }
+        },
+        {
+          "name": "List employee shifts",
+          "request": { "method": "GET", "header": [], "url": "{{base_url}}/employees/{{employee_id}}/shifts/?from=2026-10-01&to=2026-10-07" }
+        },
+        {
+          "name": "Get a shift",
+          "request": { "method": "GET", "header": [], "url": "{{base_url}}/shifts/{{shift_id}}/" }
+        },
+        {
+          "name": "Shorten a shift",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"end_datetime\": \"2026-10-01T13:00:00Z\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{base_url}}/shifts/{{shift_id}}/"
+          }
+        },
+        {
+          "name": "Forecasted pay summary",
+          "request": { "method": "GET", "header": [], "url": "{{base_url}}/employees/{{employee_id}}/forecasted-pay/?from=2026-10-01&to=2026-10-07" }
+        },
+        {
+          "name": "Delete a shift",
+          "request": { "method": "DELETE", "header": [], "url": "{{base_url}}/shifts/{{shift_id}}/" }
+        }
+      ]
+    }
+  ]
+}

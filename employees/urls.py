@@ -6,7 +6,11 @@ from .views import (
     DepartmentViewSet,
     EmergencyContactViewSet,
     EmployeeViewSet,
+    EmployeeShiftListCreateView,
+    ForecastedPayView,
+    ScheduledShiftDetailView,
 )
+from django.urls import path
 
 
 router = DefaultRouter()
@@ -28,4 +32,16 @@ employee_router.register(
     basename="employee-contacts",
 )
 
-urlpatterns = router.urls + department_router.urls + employee_router.urls
+urlpatterns = [
+    path(
+        "employees/<int:employee_id>/shifts/",
+        EmployeeShiftListCreateView.as_view(),
+        name="employee-shifts",
+    ),
+    path(
+        "employees/<int:employee_id>/forecasted-pay/",
+        ForecastedPayView.as_view(),
+        name="employee-forecasted-pay",
+    ),
+    path("shifts/<int:shift_id>/", ScheduledShiftDetailView.as_view(), name="shift-detail"),
+] + router.urls + department_router.urls + employee_router.urls
