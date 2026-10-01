@@ -1,8 +1,4 @@
-"""SQLAlchemy mappings for the tables managed by the existing Django migrations.
-
-The Django model classes stay as migration/admin compatibility declarations. All
-application reads and writes go through these SQLAlchemy records.
-"""
+"""SQLAlchemy mappings for employee data tables created by database migrations."""
 
 from datetime import date, datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
