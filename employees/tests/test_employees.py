@@ -1,7 +1,11 @@
+from datetime import date
+
 from django.urls import reverse
 from rest_framework import status
+from sqlalchemy import select
 
-from employees.models import Employee
+from employees.models.sqlalchemy_models import EmployeeRecord
+from employees.sqlalchemy_db import SessionLocal
 
 from .base import ApiTestCase
 
@@ -26,7 +30,11 @@ class EmployeeApiTests(ApiTestCase):
         response = self.client.post(reverse("employee-list"), self.employee_payload())
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertTrue(Employee.objects.filter(email="maya@example.com").exists())
+        with SessionLocal() as session:
+            exists = session.scalar(
+                select(EmployeeRecord.id).where(EmployeeRecord.email == "maya@example.com")
+            ) is not None
+        self.assertTrue(exists)
 
     def test_duplicate_email_returns_clear_error(self):
         self.authenticate_admin()
@@ -50,18 +58,23 @@ class EmployeeApiTests(ApiTestCase):
         self.assertEqual(retrieve_response.status_code, status.HTTP_200_OK)
         self.assertEqual(update_response.status_code, status.HTTP_200_OK)
         self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertFalse(Employee.objects.filter(pk=self.employee.id).exists())
+        with SessionLocal() as session:
+            exists = session.get(EmployeeRecord, self.employee.id) is not None
+        self.assertFalse(exists)
 
     def test_filter_search_and_ordering(self):
         self.authenticate_regular()
-        Employee.objects.create(
-            first_name="Ahmad",
-            last_name="Zaid",
-            email="ahmad@example.com",
-            hire_date="2022-05-01",
-            is_active=False,
-            department=self.finance,
-        )
+        with SessionLocal.begin() as session:
+            session.add(
+                EmployeeRecord(
+                    first_name="Ahmad",
+                    last_name="Zaid",
+                    email="ahmad@example.com",
+                    hire_date=date(2022, 5, 1),
+                    is_active=False,
+                    department_id=self.finance.id,
+                )
+            )
 
         inactive = self.client.get(reverse("employee-list"), {"active": "false"})
         by_department = self.client.get(

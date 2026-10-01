@@ -1,7 +1,10 @@
+from datetime import date
 from django.urls import reverse
 from rest_framework import status
+from sqlalchemy import select
 
-from employees.models import EmergencyContact, Employee
+from employees.models.sqlalchemy_models import EmergencyContactRecord, EmployeeRecord
+from employees.sqlalchemy_db import SessionLocal
 
 from .base import ApiTestCase
 
@@ -9,13 +12,16 @@ from .base import ApiTestCase
 class DepartmentEmployeeApiTests(ApiTestCase):
     def setUp(self):
         super().setUp()
-        self.finance_employee = Employee.objects.create(
-            first_name="Maya",
-            last_name="Saleh",
-            email="maya@example.com",
-            hire_date="2025-01-05",
-            department=self.finance,
-        )
+        with SessionLocal.begin() as session:
+            self.finance_employee = EmployeeRecord(
+                first_name="Maya",
+                last_name="Saleh",
+                email="maya@example.com",
+                hire_date=date(2025, 1, 5),
+                department_id=self.finance.id,
+            )
+            session.add(self.finance_employee)
+            session.flush()
 
     def test_list_only_returns_employees_in_the_department(self):
         self.authenticate_regular()
@@ -57,7 +63,7 @@ class DepartmentEmployeeApiTests(ApiTestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["department"], self.engineering.id)
         self.assertTrue(
-            Employee.objects.filter(email="rana@example.com", department=self.engineering).exists()
+            self._employee_exists("rana@example.com", self.engineering.id)
         )
 
     def test_employee_from_another_department_returns_404(self):
@@ -93,6 +99,15 @@ class DepartmentEmployeeApiTests(ApiTestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def _employee_exists(self, email, department_id):
+        with SessionLocal() as session:
+            return session.scalar(
+                select(EmployeeRecord.id).where(
+                    EmployeeRecord.email == email,
+                    EmployeeRecord.department_id == department_id,
+                )
+            ) is not None
 
 
 class EmergencyContactApiTests(ApiTestCase):
@@ -130,10 +145,7 @@ class EmergencyContactApiTests(ApiTestCase):
 
     def test_contact_can_be_retrieved_updated_and_deleted(self):
         self.authenticate_admin()
-        contact = EmergencyContact.objects.create(
-            employee=self.employee,
-            **self.contact_payload(),
-        )
+        contact = self._create_contact(self.employee.id)
 
         detail_url = self.contact_url(contact.id)
         retrieve_response = self.client.get(detail_url)
@@ -145,21 +157,24 @@ class EmergencyContactApiTests(ApiTestCase):
         self.assertEqual(update_response.status_code, status.HTTP_200_OK)
         self.assertEqual(update_response.data["relationship"], "Parent")
         self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertFalse(EmergencyContact.objects.filter(pk=contact.id).exists())
+        with SessionLocal() as session:
+            exists = session.get(EmergencyContactRecord, contact.id) is not None
+        self.assertFalse(exists)
 
     def test_contact_owned_by_another_employee_returns_404(self):
         self.authenticate_regular()
-        other_employee = Employee.objects.create(
-            first_name="Maya",
-            last_name="Saleh",
-            email="maya@example.com",
-            hire_date="2025-01-05",
-            department=self.finance,
-        )
-        contact = EmergencyContact.objects.create(
-            employee=other_employee,
-            **self.contact_payload(),
-        )
+        with SessionLocal.begin() as session:
+            other_employee = EmployeeRecord(
+                first_name="Maya",
+                last_name="Saleh",
+                email="maya@example.com",
+                hire_date=date(2025, 1, 5),
+                department_id=self.finance.id,
+            )
+            session.add(other_employee)
+            session.flush()
+            other_employee_id = other_employee.id
+        contact = self._create_contact(other_employee_id)
 
         response = self.client.get(self.contact_url(contact.id))
 
@@ -186,6 +201,17 @@ class EmergencyContactApiTests(ApiTestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("phone_number", response.data)
         self.assertIn("email", response.data)
+
+    def _create_contact(self, employee_id):
+        with SessionLocal.begin() as session:
+            contact = EmergencyContactRecord(
+                employee_id=employee_id,
+                **self.contact_payload(),
+            )
+            session.add(contact)
+            session.flush()
+        return contact
+
 
     def test_regular_user_can_read_but_cannot_write_contacts(self):
         self.authenticate_regular()

@@ -1,4 +1,3 @@
-from .django_models import Department, EmergencyContact, Employee, ScheduledShift
 from .sqlalchemy_models import (
     Base,
     DepartmentRecord,
@@ -8,7 +7,6 @@ from .sqlalchemy_models import (
 )
 
 __all__ = [
-    "Department", "Employee", "EmergencyContact", "ScheduledShift",
     "Base", "DepartmentRecord", "EmployeeRecord", "EmergencyContactRecord",
     "ScheduledShiftRecord",
 ]
