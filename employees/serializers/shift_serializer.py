@@ -4,7 +4,7 @@ from decimal import Decimal
 from marshmallow import Schema, ValidationError, fields, validate, validates_schema
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 
-from employees.models.sqlalchemy_shift_model import ScheduledShiftRecord
+from employees.models.sqlalchemy_models import ScheduledShiftRecord
 
 
 def as_utc(value):
@@ -154,4 +154,3 @@ class EmployeeRateInputSchema(Schema):
         validate=validate.Range(min=Decimal("0.00")),
         error_messages={"invalid": "A valid number is required."},
     )
-

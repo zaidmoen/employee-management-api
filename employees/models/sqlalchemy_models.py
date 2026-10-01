@@ -3,10 +3,31 @@ from decimal import Decimal, ROUND_HALF_UP
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Numeric
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    Numeric,
+)
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from .sqlalchemy_base import Base
+
+class Base(DeclarativeBase):
+    pass
+
+
+class EmployeeRecord(Base):
+    """SQLAlchemy view of the existing Django employee table."""
+
+    __tablename__ = "employees_employee"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    hourly_rate: Mapped[Decimal] = mapped_column(
+        Numeric(10, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+    )
 
 
 class ScheduledShiftRecord(Base):

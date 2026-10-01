@@ -6,7 +6,7 @@ from rest_framework.exceptions import APIException, NotFound, ValidationError
 
 from employees.repositories.shift_repository import ShiftRepository
 from employees.sqlalchemy_db import SessionLocal
-from employees.models.sqlalchemy_shift_model import ScheduledShiftRecord
+from employees.models.sqlalchemy_models import ScheduledShiftRecord
 from employees.serializers.shift_serializer import (
     AwareDateTimeField,
     EmployeeRateInputSchema,
