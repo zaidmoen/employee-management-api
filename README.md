@@ -17,7 +17,9 @@ The goal of this project is to turn a typical employee-management requirement in
 | --- | --- |
 | Language | Python 3.11+ |
 | Web framework | Django 5.2 |
-| API framework | Django REST Framework 3.16 |
+| API framework | Django REST Framework 3.16 (existing endpoints) |
+| Shift data access | SQLAlchemy 2.0 |
+| Shift validation and output | Marshmallow 4 and Marshmallow-SQLAlchemy |
 | Nested routers | `drf-nested-routers` 0.95.3 |
 | Database | MySQL 8 with `utf8mb4` |
 | Authentication | DRF token and session authentication |
@@ -76,6 +78,8 @@ erDiagram
 ## Main features
 
 - Employee and department CRUD endpoints
+- Scheduled shifts with immutable hourly-rate snapshots and calculated pay
+- Marshmallow validation and SQLAlchemy repositories for the phase 3 shift workflow
 - Nested department employee read endpoints
 - Emergency contact create, read, update, and delete endpoints under employees
 - Nested router configuration with parent-scoped child lookups
@@ -470,3 +474,70 @@ perf/query-optimization
 ```
 
 Each branch should contain a focused change and its tests, then be opened as a pull request before merging.
+
+## Phase 3: Scheduled shifts and forecasted pay
+
+The existing Django/DRF API remains in place. The shift workflow uses SQLAlchemy 2.0 for database access and Marshmallow (including Marshmallow-SQLAlchemy) for validation and output. Both use the same MySQL tables; Django migrations remain the schema history.
+
+Each employee has an hourly_rate (Decimal, default 0.00). A shift stores its employee, UTC start/end, a snapshot of the employee's rate at creation, and timestamps. scheduled_hours, forecasted_pay, and business_date are calculated from stored values whenever a response is built, so derived values cannot drift from the shift times.
+
+The existing /api/employees/{id}/ endpoint includes hourly_rate. Staff can update it with PATCH; authenticated read-only users can view it. Existing shifts keep their rate snapshot after an employee rate change.
+
+### Shift endpoints
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| POST, GET | /api/employees/{employee_id}/shifts/ | Create shifts and list an employee's shifts |
+| GET, PATCH, DELETE | /api/shifts/{shift_id}/ | Read, edit times, or delete a shift |
+| GET | /api/employees/{employee_id}/forecasted-pay/?from=YYYY-MM-DD&to=YYYY-MM-DD | Inclusive forecast summary |
+
+Create requests contain only the two time fields, for example:
+
+    POST /api/employees/7/shifts/
+    Authorization: Token YOUR_TOKEN_HERE
+    Content-Type: application/json
+
+    {"start_datetime":"2026-10-01T09:00:00Z","end_datetime":"2026-10-01T17:00:00Z"}
+
+Times must include an ISO 8601 timezone offset, use whole minutes, finish after they start, and span no more than 24 hours. Responses use UTC with a trailing Z. Shifts for the same employee may touch at an endpoint, but may not overlap; shifts for different employees can overlap. Lists are ordered by start time and use page-number pagination.
+
+Pay uses Decimal and the exact number of minutes, rounded once to two decimals with ROUND_HALF_UP. Hours are rounded only for display. For example, 7 hours 20 minutes at 15.00 per hour returns 7.33 hours and 110.00 pay.
+
+### Data and concurrency rules
+
+- The hourly rate is copied to a shift once. Updating the employee rate or shift times never changes that snapshot.
+- An employee with shifts cannot be deleted; the API returns 409 and a clear detail message.
+- Create/update checks and writes run inside a SQLAlchemy transaction. The code locks the employee row with SELECT ... FOR UPDATE before checking overlaps. A second request for that employee waits for the first transaction, then checks against the committed shift. Locking the employee row also works when no shifts exist yet.
+- MySQL cannot enforce arbitrary non-overlapping time ranges. The transaction and employee row lock protect this rule. The database also checks end_datetime > start_datetime and hourly_rate >= 0, and indexes (employee_id, start_datetime).
+- Create/list are nested because they need an employee parent. A shift detail uses the flat /api/shifts/{id}/ route because its id is unique and already points to its employee.
+
+The workflow is in employees/sqlalchemy_models.py, employees/repositories/shift_repository.py, and employees/components/shift_component.py. Marshmallow schemas are in employees/serializers/shift_serializer.py. Controllers handle HTTP status, permissions, and pagination. Migrations 0005_employee_hourly_rate and 0006_scheduled_shift separate the two database changes.
+
+### Manual verification checklist
+
+Use a staff token for writes, a regular token for read-only checks, and no token for the unauthenticated check. Create employees A and B with a 15.00 rate and employee C with no shifts.
+
+| # | Request or input | Expected result |
+| --- | --- | --- |
+| 1 | PATCH A's rate to 20.00, then 15.00 | 200 both times |
+| 2–3 | Rate -1.00, then 15.555 | 400; negative and excess decimal places rejected |
+| 4 | A: Oct 1 09:00–17:00 UTC | 201; 8.00 hours, 120.00 pay, rate 15.00 |
+| 5 | A: Oct 2 22:00–Oct 3 06:00 UTC | 201; business date Oct 2 |
+| 6 | A: Oct 4 09:00–16:20 UTC | 201; 7.33 hours and 110.00 pay |
+| 7 | Send forecasted_pay in create input | 400 read-only error; nothing saved |
+| 8–9 | End before start; then equal to start | 400 on end_datetime |
+| 10–11 | Naive datetime; then seconds included | 400; timezone and whole-minute errors |
+| 12–13 | 25-hour shift; then employee id 99999 | 400; then 404 |
+| 14–15 | A shift inside #4; then partial overlap | 400; conflict identifies the existing shift |
+| 16 | Shift starts exactly when #4 ends | 201 |
+| 17 | Shift overlaps the end of overnight #5 | 400 |
+| 18 | B gets a shift at the same time as A | 201 |
+| 19–20 | Change A rate to 20.00, GET old shift #4; create a new shift | Old shift stays at 15.00/120.00; new shift uses 20.00 |
+| 21–24 | Shorten #4; PATCH unchanged start; create overlap; send employee id | 200; 200; 400; 400 read-only error |
+| 25 | DELETE #16 twice | 204, then 404 |
+| 26–27 | DELETE A (has shifts), then C (no shifts) | 409, then 204 |
+| 28–32 | List A; filter Oct 2; reverse dates; malformed date; empty B range | Ordered list; Oct 2 only; 400; 400; 200 empty |
+| 33–35 | No-token create; regular-user writes; regular-user reads | 401; 403; 200 |
+| 36–37 | Forecast Oct 1–7; then empty December range | Correct totals; then count 0 and totals "0.00" |
+
+The request collection is docs/phase3.postman_collection.json. Set base_url, token, and employee_id in its variables before running.

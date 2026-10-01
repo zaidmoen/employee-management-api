@@ -1,7 +1,9 @@
 import re
 from datetime import date
+from decimal import Decimal
 
 from rest_framework import serializers
+from decimal import Decimal
 
 from employees.models import Department, Employee
 
@@ -15,13 +17,13 @@ class EmployeeSerializer(serializers.ModelSerializer):
         fields = [
             "id", "first_name", "last_name", "full_name", "email",
             "phone_number", "hire_date", "is_active", "department",
-            "department_name", "created_at", "updated_at",
+            "department_name", "hourly_rate", "created_at", "updated_at",
         ]
         read_only_fields = ["created_at", "updated_at"]
         extra_kwargs = {
-            "department": {"error_messages": {
+                "department": {"error_messages": {
                 "does_not_exist": "The selected department does not exist."
-            }}
+                }}
         }
 
     def validate_email(self, value):
@@ -41,6 +43,13 @@ class EmployeeSerializer(serializers.ModelSerializer):
     def validate_hire_date(self, value):
         if value > date.today():
             raise serializers.ValidationError("Hire date cannot be in the future.")
+        return value
+
+    def validate_hourly_rate(self, value):
+        if value < Decimal("0.00"):
+            raise serializers.ValidationError(
+                "Ensure this value is greater than or equal to 0."
+            )
         return value
 
     def validate(self, attrs):
