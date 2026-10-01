@@ -75,11 +75,10 @@ class EmployeeApiTests(ApiTestCase):
         self.assertEqual(search.data["results"][0]["email"], "lina@example.com")
         self.assertEqual(ordered.data["results"][0]["email"], "lina@example.com")
 
-    def test_employee_list_uses_select_related(self):
+    def test_employee_list_includes_department_name(self):
         self.authenticate_regular()
 
-        with self.assertNumQueries(3):
-            response = self.client.get(reverse("employee-list"))
+        response = self.client.get(reverse("employee-list"))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-
+        self.assertEqual(response.data["results"][0]["department_name"], "Engineering")

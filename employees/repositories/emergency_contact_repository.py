@@ -1,15 +1,18 @@
-from employees.models import Employee, EmergencyContact
+from sqlalchemy import select
+
+from employees.models.sqlalchemy_models import EmergencyContactRecord
 
 
 class EmergencyContactRepository:
-    def get_employee(self, employee_id):
-        return Employee.objects.get(pk=employee_id)
+    def get_for_employee(self, session, employee_id):
+        statement = select(EmergencyContactRecord).where(EmergencyContactRecord.employee_id == employee_id).order_by(EmergencyContactRecord.name, EmergencyContactRecord.id)
+        return list(session.scalars(statement))
 
-    def get_for_employee(self, employee_id):
-        return list(
-            EmergencyContact.objects.select_related("employee")
-            .filter(employee_id=employee_id)
-        )
+    def get_by_id(self, session, contact_id):
+        return session.get(EmergencyContactRecord, contact_id)
 
-    def create_for_employee(self, employee, contact_data):
-        return EmergencyContact.objects.create(employee=employee, **contact_data)
+    def create_for_employee(self, session, employee_id, contact_data):
+        contact = EmergencyContactRecord(employee_id=employee_id, **contact_data)
+        session.add(contact)
+        session.flush()
+        return contact

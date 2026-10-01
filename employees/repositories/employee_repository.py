@@ -1,44 +1,68 @@
-from django.db.models import Q
+from sqlalchemy import or_, select
 
-from employees.models import Employee
+from employees.models.sqlalchemy_models import DepartmentRecord, EmployeeRecord, ScheduledShiftRecord
 
 
 class EmployeeRepository:
-    def get_all(self):
-        return Employee.objects.select_related("department")
+    def get_all(self, session):
+        return self._with_department(select(EmployeeRecord).order_by(EmployeeRecord.last_name, EmployeeRecord.first_name), session)
 
-    def get_for_department(self, department_id):
-        # Scope employees in the database, then pass a plain list to the view layer.
-        return list(
-            Employee.objects.select_related("department")
-            .filter(department_id=department_id)
-        )
+    def get_for_department(self, session, department_id):
+        statement = select(EmployeeRecord).where(EmployeeRecord.department_id == department_id).order_by(EmployeeRecord.last_name, EmployeeRecord.first_name)
+        return self._with_department(statement, session)
 
-    def filter(self, active=None, department_id=None, search=None, ordering=None):
-        queryset = self.get_all()
-
+    def filter(self, session, active=None, department_id=None, search=None, ordering=None):
+        statement = select(EmployeeRecord)
         if active is not None:
-            queryset = queryset.filter(is_active=active)
+            statement = statement.where(EmployeeRecord.is_active == active)
         if department_id:
-            queryset = queryset.filter(department_id=department_id)
+            statement = statement.where(EmployeeRecord.department_id == department_id)
         if search:
-            search = search.strip()
-            queryset = queryset.filter(
-                Q(first_name__icontains=search)
-                | Q(last_name__icontains=search)
-                | Q(email__icontains=search)
-            )
+            value = f"%{search.strip()}%"
+            statement = statement.where(or_(EmployeeRecord.first_name.ilike(value), EmployeeRecord.last_name.ilike(value), EmployeeRecord.email.ilike(value)))
         if ordering:
-            queryset = queryset.order_by(ordering)
+            descending = ordering.startswith("-")
+            column = getattr(EmployeeRecord, ordering.removeprefix("-"))
+            statement = statement.order_by(column.desc() if descending else column.asc())
+        else:
+            statement = statement.order_by(EmployeeRecord.last_name, EmployeeRecord.first_name)
+        return self._with_department(statement, session)
 
-        return queryset
-
-    def get_for_update(self, employee_id):
-        return Employee.objects.select_for_update().select_related("department").get(
-            pk=employee_id
-        )
-
-    def save_department(self, employee, department):
-        employee.department = department
-        employee.save(update_fields=["department", "updated_at"])
+    def get_by_id(self, session, employee_id, lock=False):
+        statement = select(EmployeeRecord).where(EmployeeRecord.id == employee_id)
+        if lock:
+            statement = statement.with_for_update()
+        employee = session.scalar(statement)
+        if employee is not None:
+            employee.department_name = session.scalar(select(DepartmentRecord.name).where(DepartmentRecord.id == employee.department_id))
         return employee
+
+    def get_email_match(self, session, email, exclude_id=None):
+        statement = select(EmployeeRecord.id).where(EmployeeRecord.email.ilike(email))
+        if exclude_id is not None:
+            statement = statement.where(EmployeeRecord.id != exclude_id)
+        return session.scalar(statement.limit(1))
+
+    def create(self, session, values):
+        employee = EmployeeRecord(**values)
+        session.add(employee)
+        session.flush()
+        return employee
+
+    def has_shifts(self, session, employee_id):
+        return session.scalar(select(ScheduledShiftRecord.id).where(ScheduledShiftRecord.employee_id == employee_id).limit(1)) is not None
+
+    @staticmethod
+    def _with_department(statement, session):
+        employees = list(session.scalars(statement))
+        ids = {employee.department_id for employee in employees}
+        names = dict(
+            session.execute(
+                select(DepartmentRecord.id, DepartmentRecord.name).where(
+                    DepartmentRecord.id.in_(ids)
+                )
+            ).all()
+        ) if ids else {}
+        for employee in employees:
+            employee.department_name = names.get(employee.department_id, "")
+        return employees

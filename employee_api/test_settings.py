@@ -1,11 +1,12 @@
 from .settings import *  # noqa: F403
 
 
-# Automated tests use a temporary database and never touch local MySQL data.
+# A file-backed SQLite database is shared by Django and SQLAlchemy connections.
+# Django removes it after the test run, and it never touches local MySQL data.
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": ":memory:",
+        "NAME": "/tmp/employee-management-api-tests.sqlite3",
+        "TEST": {"NAME": "/tmp/employee-management-api-tests.sqlite3"},
     }
 }
-

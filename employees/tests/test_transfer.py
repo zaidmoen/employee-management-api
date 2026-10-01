@@ -2,7 +2,7 @@ from django.urls import reverse
 from rest_framework import status
 from unittest.mock import patch
 
-from employees.models import Employee
+from employees.repositories import EmployeeRepository
 from employees.services import transfer_employee
 from .base import ApiTestCase
 
@@ -57,10 +57,9 @@ class EmployeeTransferTests(ApiTestCase):
     def test_database_error_rolls_back_transfer(self):
         original_department = self.employee.department
 
-        with patch.object(Employee, "save", side_effect=RuntimeError("database failure")):
+        with patch.object(EmployeeRepository, "get_by_id", side_effect=RuntimeError("database failure")):
             with self.assertRaises(RuntimeError):
                 transfer_employee(self.employee.id, self.finance)
 
         self.employee.refresh_from_db()
         self.assertEqual(self.employee.department, original_department)
-

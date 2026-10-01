@@ -1,77 +1,51 @@
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
-from django.db.models.deletion import ProtectedError
-from employees.components.shift_component import Conflict, ShiftComponent
 
 from employees.components import EmployeeComponent
+from employees.components.shift_component import ShiftComponent
 from employees.permissions import IsAuthenticatedAndAdminWrite
-from employees.serializers import EmployeeSerializer, EmployeeTransferSerializer
+from employees.serializers.employee_serializer import (
+    EmployeeOutputSchema,
+    EmployeeTransferSchema,
+)
+from employees.components.validation import load_schema
 
 
-class EmployeeViewSet(viewsets.ModelViewSet):
-    serializer_class = EmployeeSerializer
+class EmployeeViewSet(viewsets.GenericViewSet):
     permission_classes = [IsAuthenticatedAndAdminWrite]
     component_class = EmployeeComponent
 
-    def get_queryset(self):
-        return self.component_class().get_employees_list(self.request.query_params)
+    def list(self, request):
+        records = self.component_class().get_employees_list(request.query_params)
+        paginator = PageNumberPagination()
+        page = paginator.paginate_queryset(records, request, view=self)
+        data = EmployeeOutputSchema(many=True).dump(page)
+        return paginator.get_paginated_response(data)
 
-    def partial_update(self, request, *args, **kwargs):
-        if "hourly_rate" not in request.data:
-            return super().partial_update(request, *args, **kwargs)
+    def create(self, request):
+        employee = self.component_class().create_employee(request.data)
+        return Response(EmployeeOutputSchema().dump(employee), status=status.HTTP_201_CREATED)
 
-        employee = self.get_object()
-        other_data = request.data.copy()
-        other_data.pop("hourly_rate", None)
-        serializer = None
-        if other_data:
-            serializer = self.get_serializer(employee, data=other_data, partial=True)
-            serializer.is_valid(raise_exception=True)
-        ShiftComponent().update_employee_rate(employee.pk, {
-            "hourly_rate": request.data["hourly_rate"],
-        })
-        if serializer:
-            serializer.save()
-        employee.refresh_from_db()
-        return Response(self.get_serializer(employee).data, status=status.HTTP_200_OK)
+    def retrieve(self, request, pk=None):
+        employee = self.component_class().get_employee(int(pk))
+        return Response(EmployeeOutputSchema().dump(employee))
 
-    def update(self, request, *args, **kwargs):
-        if "hourly_rate" not in request.data:
-            return super().update(request, *args, **kwargs)
+    def update(self, request, pk=None):
+        employee = self.component_class().update_employee(int(pk), request.data, partial=False)
+        return Response(EmployeeOutputSchema().dump(employee))
 
-        employee = self.get_object()
-        other_data = request.data.copy()
-        other_data.pop("hourly_rate", None)
-        other_data["hourly_rate"] = employee.hourly_rate
-        serializer = self.get_serializer(employee, data=other_data)
-        serializer.is_valid(raise_exception=True)
-        serializer.validated_data.pop("hourly_rate", None)
-        ShiftComponent().update_employee_rate(employee.pk, {
-            "hourly_rate": request.data["hourly_rate"],
-        })
-        serializer.save()
-        employee.refresh_from_db()
-        return Response(self.get_serializer(employee).data, status=status.HTTP_200_OK)
+    def partial_update(self, request, pk=None):
+        employee = self.component_class().update_employee(int(pk), request.data, partial=True)
+        return Response(EmployeeOutputSchema().dump(employee))
 
-    def destroy(self, request, *args, **kwargs):
-        employee = self.get_object()
-        if employee.scheduled_shifts.exists():
-            raise Conflict({"detail": "Employee has scheduled shifts and cannot be deleted."})
-        try:
-            return super().destroy(request, *args, **kwargs)
-        except ProtectedError as exc:
-            raise Conflict({
-                "detail": "Employee has scheduled shifts and cannot be deleted."
-            }) from exc
+    def destroy(self, request, pk=None):
+        self.component_class().delete_employee(int(pk))
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["post"])
     def transfer(self, request, pk=None):
-        input_serializer = EmployeeTransferSerializer(data=request.data)
-        input_serializer.is_valid(raise_exception=True)
-
-        employee = self.component_class().transfer_employee(
-            pk,
-            input_serializer.validated_data["department"],
-        )
-        return Response(self.get_serializer(employee).data, status=status.HTTP_200_OK)
+        values = load_schema(EmployeeTransferSchema(), request.data)
+        employee = self.component_class().transfer_employee(int(pk), values["department_id"])
+        return Response(EmployeeOutputSchema().dump(employee), status=status.HTTP_200_OK)

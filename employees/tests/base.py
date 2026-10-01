@@ -2,12 +2,12 @@ from datetime import date
 
 from django.contrib.auth import get_user_model
 from rest_framework.authtoken.models import Token
-from rest_framework.test import APITestCase
+from rest_framework.test import APITransactionTestCase
 
 from employees.models import Department, Employee
 
 
-class ApiTestCase(APITestCase):
+class ApiTestCase(APITransactionTestCase):
     def setUp(self):
         User = get_user_model()
         self.admin = User.objects.create_user(
@@ -38,4 +38,3 @@ class ApiTestCase(APITestCase):
 
     def authenticate_regular(self):
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.regular_token.key}")
-
