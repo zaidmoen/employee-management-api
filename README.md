@@ -511,7 +511,7 @@ Pay uses Decimal and the exact number of minutes, rounded once to two decimals w
 - MySQL cannot enforce arbitrary non-overlapping time ranges. The transaction and employee row lock protect this rule. The database also checks end_datetime > start_datetime and hourly_rate >= 0, and indexes (employee_id, start_datetime).
 - Create/list are nested because they need an employee parent. A shift detail uses the flat /api/shifts/{id}/ route because its id is unique and already points to its employee.
 
-The workflow is in employees/sqlalchemy_models.py, employees/repositories/shift_repository.py, and employees/components/shift_component.py. Marshmallow schemas are in employees/serializers/shift_serializer.py. Controllers handle HTTP status, permissions, and pagination. Migrations 0005_employee_hourly_rate and 0006_scheduled_shift separate the two database changes.
+The SQLAlchemy mappings are in employees/models/sqlalchemy_employee_model.py and employees/models/sqlalchemy_shift_model.py, with their shared declarative base in employees/models/sqlalchemy_base.py. Queries live in employees/repositories/shift_repository.py, business rules in employees/components/shift_component.py, and Marshmallow schemas in employees/serializers/shift_serializer.py. Controllers handle HTTP status, permissions, and pagination. Migrations 0005_employee_hourly_rate and 0006_scheduled_shift separate the two database changes.
 
 ### Manual verification checklist
 

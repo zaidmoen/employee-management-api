@@ -4,7 +4,8 @@ from zoneinfo import ZoneInfo
 from django.conf import settings
 from sqlalchemy import select
 
-from employees.sqlalchemy_models import EmployeeRecord, ScheduledShiftRecord
+from employees.models.sqlalchemy_employee_model import EmployeeRecord
+from employees.models.sqlalchemy_shift_model import ScheduledShiftRecord
 
 
 class ShiftRepository:
